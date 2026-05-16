@@ -1,3 +1,114 @@
+# Labelling Agent
+
+Autonomous data labelling pipelines built on the **[Adala](https://github.com/HumanSignal/Adala)** framework — covering end-to-end sentiment classification, multi-task labelling, and a comprehensive set of **label leakage** detection and mitigation use cases.
+
+---
+
+## Contents
+
+| File | Description |
+|------|-------------|
+| `sentiment_labeling_example.py` | End-to-end sentiment classification pipeline |
+| `sentiment_labeling_notebook.ipynb` | Interactive Jupyter version |
+| `advanced_labeling_examples.py` | Product categorisation, email intent, document priority |
+| `labelling_leak_use_cases.py` | **6 label leakage scenarios** with detection + mitigation |
+| `adala/evaluation.py` | Reusable `ClassificationEvaluator` and `MetricsReporter` |
+| `LABELING_USE_CASE_GUIDE.md` | Full usage guide |
+| `IMPLEMENTATION_SUMMARY.md` | Architecture and design notes |
+| `QUICK_REFERENCE.md` | Quick-start cheat sheet |
+
+---
+
+## Label Leakage Use Cases
+
+`labelling_leak_use_cases.py` demonstrates six real-world leakage patterns, each with a runnable Adala agent example, a detection strategy, and a mitigation:
+
+| # | Leak Type | Root Cause | Signal |
+|---|-----------|-----------|--------|
+| 1 | **Ground Truth Leakage** | Label keyword embedded in input text | Accuracy collapses when keyword is stripped |
+| 2 | **Temporal Leakage** | Future column visible at train time | Feature recorded after the label window closes |
+| 3 | **Annotator Bias Leakage** | Single biased annotator labels all splits | Large gap between inter-annotator kappa and gold F1 |
+| 4 | **Feature Leakage** | Post-resolution metric used as input | Feature computed after the label is assigned |
+| 5 | **Data Contamination** | Test rows duplicated in training set | Exact-match overlap between splits |
+| 6 | **Pipeline Leakage** | Preprocessing fitted on full dataset | Vocabulary/statistics include test-set signal |
+
+### Leak Detection Checklist
+
+1. **Ground Truth** — inspect input templates; label keywords must not appear in any input field.
+2. **Temporal** — audit every column's collection timestamp vs. the prediction window.
+3. **Annotator Bias** — compute Cohen's kappa across annotators; adjudicate disagreements before training.
+4. **Feature** — trace each feature's data lineage; exclude anything computed after the label.
+5. **Contamination** — run exact-match + fuzzy deduplication between train and test before evaluation.
+6. **Pipeline** — fit all preprocessing (scalers, encoders, frequency counts) on training data only.
+
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/JayKimProject/labelling_agent.git
+cd labelling_agent
+pip install adala scikit-learn pandas numpy
+
+export OPENAI_API_KEY="your-key"
+
+# Run sentiment labelling
+python sentiment_labeling_example.py
+
+# Run all leakage use cases
+python labelling_leak_use_cases.py
+```
+
+---
+
+## Framework: Adala
+
+**Adala** (Autonomous Data Labeling Agent) uses composable `Skills`, `Environments`, and `Runtimes`:
+
+```python
+from adala.agents import Agent
+from adala.environments import StaticEnvironment
+from adala.skills import ClassificationSkill
+
+agent = Agent(
+    skills=ClassificationSkill(
+        name='sentiment',
+        input_template='Review: {review}',
+        output_template='Sentiment: {predicted_sentiment}',
+        labels={'predicted_sentiment': ["Positive", "Negative", "Neutral"]},
+    ),
+    environment=StaticEnvironment(
+        df=training_df,
+        ground_truth_columns={'predicted_sentiment': 'sentiment'}
+    )
+)
+
+agent.learn()
+predictions = agent.run(test_df)
+```
+
+---
+
+## Evaluation
+
+The `adala/evaluation.py` module provides:
+
+- `ClassificationEvaluator` — accuracy, macro/weighted F1, Cohen's kappa, confusion matrix, error analysis
+- `MetricsReporter` — formatted console report, JSON export, CSV export
+
+```python
+from adala.evaluation import ClassificationEvaluator, MetricsReporter
+
+evaluator = ClassificationEvaluator(ground_truth, predictions)
+MetricsReporter(evaluator).print_full_report()
+```
+
+---
+
+Built on [Adala](https://github.com/HumanSignal/Adala) by HumanSignal.
+
+---
+
 [![PyPI version](https://badge.fury.io/py/adala.svg)](https://badge.fury.io/py/adala)
 ![Python Version](https://img.shields.io/badge/supported_python_version_-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11-blue)
 ![GitHub](https://img.shields.io/github/license/HumanSignal/Adala)
